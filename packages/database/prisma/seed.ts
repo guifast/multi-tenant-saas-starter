@@ -82,7 +82,7 @@ async function main() {
     },
   });
 
-  console.log(`Seed complete. Development password: ${password}`);
+  console.log("Seed complete. Use SEED_PASSWORD from your local environment to sign in.");
 }
 
 main()
