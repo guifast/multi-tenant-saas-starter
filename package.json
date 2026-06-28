@@ -1,0 +1,31 @@
+{
+  "name": "multi-tenant-saas-starter",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.17.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "test:integration": "turbo test:integration",
+    "test:e2e": "turbo test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "pnpm --filter @saas/database db:migrate",
+    "db:seed": "pnpm --filter @saas/database db:seed",
+    "db:generate": "pnpm --filter @saas/database db:generate"
+  },
+  "devDependencies": {
+    "@saas/eslint-config": "workspace:*",
+    "@saas/typescript-config": "workspace:*",
+    "eslint": "9.39.4",
+    "prettier": "3.9.0",
+    "turbo": "2.6.3",
+    "typescript": "6.0.3"
+  }
+}

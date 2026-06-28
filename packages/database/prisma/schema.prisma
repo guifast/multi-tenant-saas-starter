@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model User {
+  id              String       @id @default(uuid()) @db.Uuid
+  name            String       @db.VarChar(100)
+  email           String       @unique @db.VarChar(320)
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  memberships     Membership[]
+  tenantsCreated  Tenant[]     @relation("TenantCreator")
+  invitationsSent Invitation[] @relation("InvitationSender")
+  projectsCreated Project[]    @relation("ProjectCreator")
+  projectsAssigned Project[]   @relation("ProjectAssignee")
+  auditLogs        AuditLog[]
+  sessions         Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Tenant {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @db.VarChar(100)
+  slug        String       @unique @db.VarChar(64)
+  createdById String       @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdBy   User         @relation("TenantCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  memberships Membership[]
+  invitations Invitation[]
+  projects    Project[]
+  auditLogs   AuditLog[]
+}
+
+model Membership {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  tenantId  String   @db.Uuid
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+}
+
+model Invitation {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  email       String    @db.VarChar(320)
+  role        Role
+  tokenHash   String    @unique
+  invitedById String    @db.Uuid
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, email])
+  @@index([expiresAt])
+}
+
+model Project {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @db.Uuid
+  name         String        @db.VarChar(140)
+  description  String?
+  status       ProjectStatus @default(PLANNED)
+  createdById  String        @db.Uuid
+  assignedToId String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User          @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo   User?         @relation("ProjectAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, assignedToId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String   @db.VarChar(80)
+  entityType  String   @db.VarChar(80)
+  entityId    String?  @db.VarChar(120)
+  metadata    Json?
+  ipAddress   String?  @db.VarChar(80)
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+}
