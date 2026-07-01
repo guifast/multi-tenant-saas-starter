@@ -14,6 +14,15 @@
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "dev": {
+      "dependsOn": ["^build"],
+      "env": [
+        "DATABASE_URL",
+        "SESSION_SECRET",
+        "API_PORT",
+        "WEB_PORT",
+        "WEB_ORIGIN",
+        "NEXT_PUBLIC_API_URL"
+      ],
       "cache": false,
       "persistent": true
     },
@@ -28,10 +37,12 @@
     },
     "test:integration": {
       "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL", "SESSION_SECRET", "WEB_ORIGIN"],
       "cache": false
     },
     "test:e2e": {
       "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL", "SESSION_SECRET", "WEB_ORIGIN"],
       "cache": false
     }
   }

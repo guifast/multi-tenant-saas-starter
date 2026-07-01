@@ -9,7 +9,7 @@ import { RequestIdMiddleware } from "./common/logging/request-id.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
-  const port = Number(process.env.API_PORT ?? 4000);
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
   const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 
   app.use(helmet());
@@ -26,7 +26,7 @@ async function bootstrap() {
     .build();
   SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swaggerConfig));
 
-  await app.listen(port);
+  await app.listen(port, "0.0.0.0");
 }
 
 void bootstrap();

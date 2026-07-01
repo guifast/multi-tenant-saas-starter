@@ -66,7 +66,6 @@ export class ProjectsService {
 
   async update(tenantId: string, projectId: string, actorUserId: string, input: unknown) {
     const data = updateProjectSchema.parse(input);
-    await this.get(tenantId, projectId);
     if (data.assignedToId) {
       await this.assertMemberInTenant(tenantId, data.assignedToId);
     }
@@ -76,9 +75,15 @@ export class ProjectsService {
     if (data.status !== undefined) updateData.status = data.status;
     if (data.assignedToId !== undefined) updateData.assignedToId = data.assignedToId;
 
-    const project = await this.prisma.project.update({
-      where: { id: projectId },
+    const result = await this.prisma.project.updateMany({
+      where: { id: projectId, tenantId },
       data: updateData,
+    });
+    if (result.count === 0) {
+      throw new AppError("PROJECT_NOT_FOUND", "Project not found.", 404);
+    }
+    const project = await this.prisma.project.findFirstOrThrow({
+      where: { id: projectId, tenantId },
     });
     await this.audit.record({
       tenantId,
@@ -91,10 +96,15 @@ export class ProjectsService {
   }
 
   async archive(tenantId: string, projectId: string, actorUserId: string) {
-    await this.get(tenantId, projectId);
-    const project = await this.prisma.project.update({
-      where: { id: projectId },
+    const result = await this.prisma.project.updateMany({
+      where: { id: projectId, tenantId },
       data: { status: "ARCHIVED" },
+    });
+    if (result.count === 0) {
+      throw new AppError("PROJECT_NOT_FOUND", "Project not found.", 404);
+    }
+    const project = await this.prisma.project.findFirstOrThrow({
+      where: { id: projectId, tenantId },
     });
     await this.audit.record({
       tenantId,

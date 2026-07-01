@@ -32,10 +32,14 @@ export class MembershipsService {
     if (membership.role === Role.OWNER && data.role !== Role.OWNER) {
       await this.assertAnotherOwnerExists(tenantId, membershipId);
     }
-    const updated = await this.prisma.membership.update({
-      where: { id: membershipId },
+    const result = await this.prisma.membership.updateMany({
+      where: { id: membershipId, tenantId },
       data: { role: data.role },
     });
+    if (result.count === 0) {
+      throw new AppError("MEMBER_NOT_FOUND", "Member not found.", 404);
+    }
+    const updated = await this.findMembership(tenantId, membershipId);
     await this.audit.record({
       tenantId,
       actorUserId,
@@ -52,7 +56,12 @@ export class MembershipsService {
     if (membership.role === Role.OWNER) {
       await this.assertAnotherOwnerExists(tenantId, membershipId);
     }
-    await this.prisma.membership.delete({ where: { id: membershipId } });
+    const result = await this.prisma.membership.deleteMany({
+      where: { id: membershipId, tenantId },
+    });
+    if (result.count === 0) {
+      throw new AppError("MEMBER_NOT_FOUND", "Member not found.", 404);
+    }
     await this.audit.record({
       tenantId,
       actorUserId,

@@ -11,7 +11,7 @@ export class RequestIdMiddleware {
       const safeLog = {
         requestId,
         method: req.method,
-        route: req.originalUrl,
+        route: sanitizeRoute(req.originalUrl),
         statusCode: res.statusCode,
         durationMs: Date.now() - start,
       };
@@ -19,4 +19,8 @@ export class RequestIdMiddleware {
     });
     next();
   };
+}
+
+export function sanitizeRoute(route: string) {
+  return route.replace(/\/invitations\/[^/]+\/accept/g, "/invitations/[redacted]/accept");
 }

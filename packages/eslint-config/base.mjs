@@ -14,6 +14,7 @@ export default tseslint.config(
       "**/.next/**",
       "coverage/**",
       "**/coverage/**",
+      "**/vitest.integration.config.ts",
       "packages/database/generated/**",
       "**/vitest.config.ts",
     ],

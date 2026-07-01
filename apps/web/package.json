@@ -9,9 +9,7 @@
     "start": "next start --port ${WEB_PORT:-3000}",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run src/**/*.test.ts --passWithNoTests",
-    "test:integration": "vitest run --passWithNoTests",
-    "test:e2e": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@saas/contracts": "workspace:*",

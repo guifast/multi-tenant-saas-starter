@@ -88,14 +88,23 @@ export async function apiRequest<T>(
 
   const payload = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) {
-    const message =
-      typeof payload === "object" &&
-      payload !== null &&
-      "message" in payload &&
-      typeof payload.message === "string"
-        ? payload.message
-        : "Request failed. Check the form and try again.";
+    const message = readApiErrorMessage(payload);
     throw new Error(message);
   }
   return payload as T;
+}
+
+function readApiErrorMessage(payload: unknown) {
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "error" in payload &&
+    typeof payload.error === "object" &&
+    payload.error !== null &&
+    "message" in payload.error &&
+    typeof payload.error.message === "string"
+  ) {
+    return payload.error.message;
+  }
+  return "Request failed. Check the form and try again.";
 }

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { Prisma } from "@saas/database";
+import { Invitation, Prisma } from "@saas/database";
 import { inviteMemberSchema } from "@saas/contracts";
 import { AuditService } from "../audit/audit.service";
 import { canInvite } from "../common/auth/permissions";
@@ -40,7 +40,12 @@ export class InvitationsService {
         entityId: invitation.id,
         metadata: { role: data.role, email: data.email },
       });
-      return { data: { invitation, developmentUrl: `/accept-invitation/${token}` } };
+      return {
+        data: {
+          invitation: toPublicInvitation(invitation),
+          developmentUrl: `/accept-invitation/${token}`,
+        },
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -58,10 +63,12 @@ export class InvitationsService {
 
   async list(tenantId: string) {
     return {
-      data: await this.prisma.invitation.findMany({
-        where: { tenantId },
-        orderBy: { createdAt: "desc" },
-      }),
+      data: (
+        await this.prisma.invitation.findMany({
+          where: { tenantId },
+          orderBy: { createdAt: "desc" },
+        })
+      ).map(toPublicInvitation),
     };
   }
 
@@ -78,9 +85,15 @@ export class InvitationsService {
         409,
       );
     }
-    const revoked = await this.prisma.invitation.update({
-      where: { id: invitationId },
+    const result = await this.prisma.invitation.updateMany({
+      where: { id: invitationId, tenantId },
       data: { revokedAt: new Date() },
+    });
+    if (result.count === 0) {
+      throw new AppError("INVITATION_NOT_FOUND", "Invitation not found.", 404);
+    }
+    const revoked = await this.prisma.invitation.findFirstOrThrow({
+      where: { id: invitationId, tenantId },
     });
     await this.audit.record({
       tenantId,
@@ -89,7 +102,7 @@ export class InvitationsService {
       entityType: "invitation",
       entityId: invitationId,
     });
-    return { data: revoked };
+    return { data: toPublicInvitation(revoked) };
   }
 
   async accept(token: string, userId: string) {
@@ -98,6 +111,15 @@ export class InvitationsService {
       const invitation = await tx.invitation.findUnique({ where: { tokenHash } });
       if (!invitation)
         throw new AppError("INVITATION_NOT_FOUND", "Invitation not found.", 404);
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new AppError("UNAUTHENTICATED", "Authentication required.", 401);
+      if (user.email !== invitation.email) {
+        throw new AppError(
+          "INVITATION_EMAIL_MISMATCH",
+          "This invitation belongs to a different account.",
+          403,
+        );
+      }
       if (invitation.revokedAt)
         throw new AppError("INVITATION_REVOKED", "Invitation revoked.", 410);
       if (invitation.expiresAt < new Date()) {
@@ -113,28 +135,38 @@ export class InvitationsService {
           409,
         );
       }
-      if (!existing) {
-        await tx.membership.create({
-          data: { userId, tenantId: invitation.tenantId, role: invitation.role },
-        });
-      }
-      const accepted = invitation.acceptedAt
-        ? invitation
-        : await tx.invitation.update({
-            where: { id: invitation.id },
-            data: { acceptedAt: new Date() },
-          });
-      await tx.auditLog.create({
-        data: {
+      await tx.membership.upsert({
+        where: { userId_tenantId: { userId, tenantId: invitation.tenantId } },
+        update: {},
+        create: {
+          userId,
           tenantId: invitation.tenantId,
-          actorUserId: userId,
-          action: "invitation.accepted",
-          entityType: "invitation",
-          entityId: invitation.id,
+          role: invitation.role,
         },
       });
-      return accepted;
+      const acceptedResult = await tx.invitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null },
+        data: { acceptedAt: new Date() },
+      });
+      if (acceptedResult.count === 1) {
+        await tx.auditLog.create({
+          data: {
+            tenantId: invitation.tenantId,
+            actorUserId: userId,
+            action: "invitation.accepted",
+            entityType: "invitation",
+            entityId: invitation.id,
+          },
+        });
+      }
+      return tx.invitation.findUniqueOrThrow({ where: { id: invitation.id } });
     });
-    return { data: result };
+    return { data: toPublicInvitation(result) };
   }
+}
+
+function toPublicInvitation(invitation: Invitation) {
+  const { tokenHash, ...publicInvitation } = invitation;
+  void tokenHash;
+  return publicInvitation;
 }

@@ -10,8 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "vitest run --dir test --passWithNoTests",
-    "test:e2e": "vitest run --passWithNoTests"
+    "test:integration": "sh -c 'DATABASE_URL=${TEST_DATABASE_URL:-$DATABASE_URL} vitest run --config vitest.integration.config.ts'",
+    "test:e2e": "pnpm test:integration"
   },
   "dependencies": {
     "@nestjs/common": "11.1.9",
